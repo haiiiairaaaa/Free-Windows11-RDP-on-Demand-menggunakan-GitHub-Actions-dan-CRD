@@ -1,4 +1,4 @@
-name: Ultra Stable RDP (Optimized Debian Host)
+name: Ultra Stable RDP (Final Optimized)
 
 on:
   workflow_dispatch:
@@ -67,18 +67,20 @@ jobs:
           reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFxSetting /t REG_DWORD /d 2 /f
           reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012078010000000 /f
 
-          # Optimize TCP & network stack
-          netsh int tcp set global autotuninglevel=highlyrestricted
-          netsh int tcp set global chimney=enabled
+          # Modern-safe TCP optimization
+          netsh int tcp set global autotuninglevel=normal
+          netsh int tcp set global ecncapability=disabled
+          netsh int tcp set global timestamps=disabled
           netsh int tcp set global rss=enabled
-          netsh interface tcp set heuristics disabled
+          netsh int tcp set global rsc=enabled
+          netsh int tcp set global pacingprofile=always
 
           # Disable sleep / hibernate
           powercfg -change -standby-timeout-ac 0
           powercfg -change -hibernate-timeout-ac 0
           powercfg -h off
 
-          # Set CRD and VBox to high CPU priority
+          # Set process priority globally
           reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 26 /f
 
           Write-Host "✅ System optimized for maximum RDP stability and throughput."
@@ -98,7 +100,14 @@ jobs:
           $finalArgs = "$crdArgs -pin=`"$PIN`""
 
           Write-Host "Starting CRD Host..."
-          Start-Process -FilePath $crdExe.FullName -ArgumentList $finalArgs -Priority High
+          $proc = Start-Process -FilePath $crdExe.FullName -ArgumentList $finalArgs -PassThru
+          Start-Sleep -Seconds 5
+          try {
+            $proc.PriorityClass = 'High'
+            Write-Host "✅ CRD process priority set to High."
+          } catch {
+            Write-Warning "Could not elevate CRD process priority: $_"
+          }
 
           Start-Sleep -Seconds 10
           Write-Host "CRD is now running with optimized settings."
