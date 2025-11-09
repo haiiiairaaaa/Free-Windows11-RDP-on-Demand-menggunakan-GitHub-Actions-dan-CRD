@@ -1,4 +1,4 @@
-name: Ultra Stable RDP (Final Optimized)
+name: Ultra Stable RDP (Final CMD-Compatible)
 
 on:
   workflow_dispatch:
@@ -50,11 +50,11 @@ jobs:
         run: |
           Write-Host "Applying aggressive performance and network optimizations..."
 
-          # Power Plan
+          # Ultimate Performance Plan
           powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 | Out-Null
           powercfg /s e9a42b02-d5df-448d-aa00-03f14749eb61 | Out-Null
 
-          # Disable Services that cause lag
+          # Disable unnecessary services
           $services = "WSearch","SysMain","wuauserv","BITS","DiagTrack"
           foreach ($s in $services) {
             Get-Service -Name $s -ErrorAction SilentlyContinue | ForEach-Object {
@@ -63,11 +63,11 @@ jobs:
             }
           }
 
-          # Disable Visual Effects
+          # Disable visual effects
           reg add "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects" /v VisualFxSetting /t REG_DWORD /d 2 /f
           reg add "HKCU\Control Panel\Desktop" /v UserPreferencesMask /t REG_BINARY /d 9012078010000000 /f
 
-          # Modern-safe TCP optimization
+          # Modern-safe TCP optimizations
           netsh int tcp set global autotuninglevel=normal
           netsh int tcp set global ecncapability=disabled
           netsh int tcp set global timestamps=disabled
@@ -80,37 +80,17 @@ jobs:
           powercfg -change -hibernate-timeout-ac 0
           powercfg -h off
 
-          # Set process priority globally
-          reg add "HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl" /v Win32PrioritySeparation /t REG_DWORD /d 26 /f
-
           Write-Host "✅ System optimized for maximum RDP stability and throughput."
 
       - name: 💻 Launch Chrome Remote Desktop
-        shell: pwsh
+        shell: cmd
         run: |
-          $FullCommand = '${{ github.event.inputs.crd_full_command }}'
-          $ArgsPattern = '\s+--code.+'
-          if ($FullCommand -match $ArgsPattern) { $crdArgs = $matches[0].Trim() }
-          else { Write-Error "Could not extract CRD arguments."; exit 1 }
-
-          $crdExe = Get-ChildItem -Path "C:\Program Files","C:\Program Files (x86)" -Recurse -Filter "remoting_start_host.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-          if (-not $crdExe) { Write-Error "CRD executable not found!"; exit 1 }
-
-          $PIN = "123456"
-          $finalArgs = "$crdArgs -pin=`"$PIN`""
-
-          Write-Host "Starting CRD Host..."
-          $proc = Start-Process -FilePath $crdExe.FullName -ArgumentList $finalArgs -PassThru
-          Start-Sleep -Seconds 5
-          try {
-            $proc.PriorityClass = 'High'
-            Write-Host "✅ CRD process priority set to High."
-          } catch {
-            Write-Warning "Could not elevate CRD process priority: $_"
-          }
-
-          Start-Sleep -Seconds 10
-          Write-Host "CRD is now running with optimized settings."
+          echo Starting Chrome Remote Desktop Host...
+          set "PIN=123456"
+          set "FULL_CMD=${{ github.event.inputs.crd_full_command }}"
+          call %FULL_CMD% --pin=%PIN%
+          echo CRD started successfully.
+          timeout /t 10 >nul
 
       - name: 🕓 Keep Runner Alive
         shell: pwsh
